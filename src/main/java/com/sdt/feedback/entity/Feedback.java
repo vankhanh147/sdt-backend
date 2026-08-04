@@ -24,7 +24,8 @@ public class Feedback {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    // quan hệ 1-1 viuws RawFeedback
+    @OneToOne(fetch = FetchType.LAZY, optional = false) 
     @JoinColumn(name = "raw_feedback_id", nullable = false, unique = true)
     private RawFeedback rawFeedback;
 
