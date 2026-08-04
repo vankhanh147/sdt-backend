@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
+//File này dùng để nhận JSON từ client khi gọi: //POST /api/feedback/ingest
 public record FeedbackIngestRequest(
         @NotNull
         SourceType source,

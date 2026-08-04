@@ -30,6 +30,7 @@ public class AnalysisResult {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
+    // quan hệ một - nhiều với Feedback, một Feedback -> nhiều AnalysisResult
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "feedback_id", nullable = false)
     private Feedback feedback;
