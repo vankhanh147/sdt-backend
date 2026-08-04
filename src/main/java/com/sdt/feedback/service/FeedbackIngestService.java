@@ -5,6 +5,7 @@ import com.sdt.feedback.dto.response.FeedbackIngestResponse;
 import com.sdt.feedback.entity.RawFeedback;
 import com.sdt.feedback.enums.RawProcessingStatus;
 import com.sdt.feedback.exception.DuplicateFeedbackException;
+import com.sdt.feedback.mapper.RawFeedbackMapper;
 import com.sdt.feedback.repository.RawFeedbackRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,46 +13,35 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class FeedbackIngestService {
 
-    private final RawFeedbackRepository rawFeedbackRepository;
+    private final RawFeedbackRepository rawFeedbackRepository; // Service cần Repository để kiểm tra và lưu dữ liệu.
+    private final RawFeedbackMapper rawFeedbackMapper;
 
-    public FeedbackIngestService(RawFeedbackRepository rawFeedbackRepository) {
+    //Constructor:
+    public FeedbackIngestService(
+            RawFeedbackRepository rawFeedbackRepository,
+            RawFeedbackMapper rawFeedbackMapper
+    ) {
         this.rawFeedbackRepository = rawFeedbackRepository;
+        this.rawFeedbackMapper = rawFeedbackMapper;
     }
 
     @Transactional
-    public FeedbackIngestResponse ingest(FeedbackIngestRequest request) {
+    public FeedbackIngestResponse ingest(FeedbackIngestRequest request) { //nhận FeedbackIngestRequest
         if (rawFeedbackRepository.existsBySourceAndSourceRef(
                 request.source(),
                 request.sourceRef()
         )) {
-            throw new DuplicateFeedbackException(
+            throw new DuplicateFeedbackException( 
                     "Feedback already exists for source=%s and sourceRef=%s"
                             .formatted(request.source(), request.sourceRef())
             );
         }
 
-        RawFeedback rawFeedback = new RawFeedback();
-        rawFeedback.setSource(request.source());
-        rawFeedback.setSourceRef(request.sourceRef());
-        rawFeedback.setRawTitle(request.rawTitle());
-        rawFeedback.setRawContent(request.rawContent());
-        rawFeedback.setRawAuthorName(request.rawAuthorName());
-        rawFeedback.setRawAuthorContact(request.rawAuthorContact());
-        rawFeedback.setRawLocation(request.rawLocation());
-        rawFeedback.setCategoryHint(request.categoryHint());
-        rawFeedback.setRawMetadata(request.rawMetadata());
-        rawFeedback.setReceivedAt(request.receivedAt());
-        rawFeedback.setProcessingStatus(RawProcessingStatus.NEW);
+        RawFeedback rawFeedback = rawFeedbackMapper.toEntity(request);
+        rawFeedback.setProcessingStatus(RawProcessingStatus.NEW); //đặt trạng thái NEW
 
-        RawFeedback savedFeedback = rawFeedbackRepository.saveAndFlush(rawFeedback);
+        RawFeedback savedFeedback = rawFeedbackRepository.saveAndFlush(rawFeedback); //lưu bằng RawFeedbackRepository
 
-        return new FeedbackIngestResponse(
-                savedFeedback.getId(),
-                savedFeedback.getSource(),
-                savedFeedback.getSourceRef(),
-                savedFeedback.getProcessingStatus(),
-                savedFeedback.getReceivedAt(),
-                savedFeedback.getCreatedAt()
-        );
+        return rawFeedbackMapper.toResponse(savedFeedback);
     }
 }
