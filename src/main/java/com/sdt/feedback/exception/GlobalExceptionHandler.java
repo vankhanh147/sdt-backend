@@ -17,6 +17,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(InvalidFilterException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFilter(
+            InvalidFilterException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(DuplicateFeedbackException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateFeedback(
             DuplicateFeedbackException exception,
