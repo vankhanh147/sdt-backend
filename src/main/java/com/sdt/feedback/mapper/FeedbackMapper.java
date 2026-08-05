@@ -1,5 +1,6 @@
 package com.sdt.feedback.mapper;
 
+import com.sdt.feedback.dto.request.FeedbackUpdateRequest;
 import com.sdt.feedback.dto.response.AnalysisResultResponse;
 import com.sdt.feedback.dto.response.FeedbackDetailResponse;
 import com.sdt.feedback.dto.response.FeedbackListItemResponse;
@@ -7,8 +8,11 @@ import com.sdt.feedback.dto.response.RawFeedbackDetailResponse;
 import com.sdt.feedback.entity.AnalysisResult;
 import com.sdt.feedback.entity.Feedback;
 import com.sdt.feedback.entity.RawFeedback;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
@@ -66,5 +70,18 @@ public interface FeedbackMapper {
             RawFeedbackDetailResponse rawFeedback,
             AnalysisResultResponse latestAnalysis,
             List<AnalysisResultResponse> analysisHistory
+    );
+
+    @BeanMapping(
+            nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
+    )
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "rawFeedback", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "resolvedAt", ignore = true)
+    void updateEntity(
+            FeedbackUpdateRequest request,
+            @MappingTarget Feedback feedback
     );
 }
