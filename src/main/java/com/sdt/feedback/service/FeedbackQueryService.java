@@ -2,10 +2,14 @@ package com.sdt.feedback.service;
 
 import com.sdt.feedback.dto.request.FeedbackFilterRequest;
 import com.sdt.feedback.dto.response.FeedbackListItemResponse;
+import com.sdt.feedback.dto.response.AnalysisResultResponse;
+import com.sdt.feedback.dto.response.FeedbackDetailResponse;
 import com.sdt.feedback.dto.response.PageResponse;
+import com.sdt.feedback.dto.response.RawFeedbackDetailResponse;
 import com.sdt.feedback.entity.AnalysisResult;
 import com.sdt.feedback.entity.Feedback;
 import com.sdt.feedback.exception.InvalidFilterException;
+import com.sdt.feedback.exception.ResourceNotFoundException;
 import com.sdt.feedback.mapper.FeedbackMapper;
 import com.sdt.feedback.repository.AnalysisResultRepository;
 import com.sdt.feedback.repository.FeedbackRepository;
@@ -94,6 +98,31 @@ public class FeedbackQueryService {
                 feedbackPage.getTotalPages(),
                 feedbackPage.isFirst(),
                 feedbackPage.isLast()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public FeedbackDetailResponse getFeedbackDetail(UUID id) {
+        Feedback feedback = feedbackRepository.findDetailById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Feedback not found with id=" + id
+                ));
+
+        List<AnalysisResult> analysisResults = analysisResultRepository
+                .findByFeedback_IdOrderByCreatedAtDesc(id);
+        List<AnalysisResultResponse> analysisHistory = feedbackMapper
+                .toAnalysisResultResponses(analysisResults);
+        AnalysisResultResponse latestAnalysis = analysisHistory.isEmpty()
+                ? null
+                : analysisHistory.getFirst();
+        RawFeedbackDetailResponse rawFeedback = feedbackMapper
+                .toRawFeedbackDetailResponse(feedback.getRawFeedback());
+
+        return feedbackMapper.toDetailResponse(
+                feedback,
+                rawFeedback,
+                latestAnalysis,
+                analysisHistory
         );
     }
 

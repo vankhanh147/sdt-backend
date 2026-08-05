@@ -3,6 +3,7 @@ package com.sdt.feedback.controller;
 import com.sdt.feedback.dto.request.FeedbackIngestRequest;
 import com.sdt.feedback.dto.request.FeedbackFilterRequest;
 import com.sdt.feedback.dto.response.FeedbackIngestResponse;
+import com.sdt.feedback.dto.response.FeedbackDetailResponse;
 import com.sdt.feedback.dto.response.FeedbackListItemResponse;
 import com.sdt.feedback.dto.response.PageResponse;
 import com.sdt.feedback.service.FeedbackIngestService;
@@ -13,9 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/feedback")
@@ -37,6 +41,13 @@ public class FeedbackController {
             @Valid @ModelAttribute FeedbackFilterRequest filter
     ) {
         return ResponseEntity.ok(feedbackQueryService.getFeedbacks(filter));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<FeedbackDetailResponse> getFeedbackDetail(
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(feedbackQueryService.getFeedbackDetail(id));
     }
 
     @PostMapping("/ingest")

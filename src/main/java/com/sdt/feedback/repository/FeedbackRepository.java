@@ -20,4 +20,7 @@ public interface FeedbackRepository extends
     Page<Feedback> findAll(Specification<Feedback> specification, Pageable pageable);
 
     Optional<Feedback> findByRawFeedback_Id(UUID rawFeedbackId);
+
+    @EntityGraph(attributePaths = "rawFeedback")
+    Optional<Feedback> findDetailById(UUID id);
 }
