@@ -9,6 +9,9 @@ target/
 .classpath
 .factorypath
 .project
+
+# Internal source datasets used to prepare local seed scripts
+data/
 .settings
 .springBeans
 .sts4-cache
