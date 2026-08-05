@@ -71,6 +71,17 @@ public class FeedbackCommandService {
         );
     }
 
+    @Transactional
+    public void deleteFeedback(UUID id) {
+        Feedback feedback = feedbackRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Feedback not found with id=" + id
+                ));
+
+        feedbackRepository.delete(feedback);
+        feedbackRepository.flush();
+    }
+
     private FeedbackUpdateRequest normalize(FeedbackUpdateRequest request) {
         if (request.title() == null
                 && request.content() == null
