@@ -18,6 +18,32 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(InvalidCategoryUpdateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCategoryUpdate(
+            InvalidCategoryUpdateException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(DuplicateCategoryException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateCategory(
+            DuplicateCategoryException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(InvalidUpdateException.class)
     public ResponseEntity<ErrorResponse> handleInvalidUpdate(
             InvalidUpdateException exception,
