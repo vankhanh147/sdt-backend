@@ -18,6 +18,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ExportLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleExportLimitExceeded(
+            ExportLimitExceededException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(InvalidCategoryUpdateException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCategoryUpdate(
             InvalidCategoryUpdateException exception,
@@ -75,9 +88,12 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException exception,
             HttpServletRequest request
     ) {
+        String message = exception.getRequiredType() == java.util.UUID.class
+                ? "Invalid path parameter"
+                : "Invalid request parameter: " + exception.getName();
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Invalid path parameter",
+                message,
                 request.getRequestURI(),
                 null
         );
