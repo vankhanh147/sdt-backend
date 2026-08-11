@@ -75,9 +75,12 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException exception,
             HttpServletRequest request
     ) {
+        String message = exception.getRequiredType() == java.util.UUID.class
+                ? "Invalid path parameter"
+                : "Invalid request parameter: " + exception.getName();
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Invalid path parameter",
+                message,
                 request.getRequestURI(),
                 null
         );
