@@ -1,19 +1,23 @@
 package com.sdt.feedback.service;
 
 import com.sdt.feedback.dto.response.DashboardStatsResponse;
+import com.sdt.feedback.dto.response.DashboardDistributionResponse;
 import com.sdt.feedback.dto.response.DashboardTrendResponse;
 import com.sdt.feedback.dto.response.FeedbackStatusStatsResponse;
+import com.sdt.feedback.dto.response.DistributionItemResponse;
 import com.sdt.feedback.dto.response.PriorityStatsResponse;
 import com.sdt.feedback.dto.response.SentimentStatsResponse;
 import com.sdt.feedback.dto.response.TrendPointResponse;
 import com.sdt.feedback.enums.FeedbackStatus;
 import com.sdt.feedback.enums.PriorityLevel;
 import com.sdt.feedback.enums.SentimentType;
+import com.sdt.feedback.enums.SourceType;
 import com.sdt.feedback.enums.TrendInterval;
 import com.sdt.feedback.exception.InvalidFilterException;
 import com.sdt.feedback.repository.AnalysisResultRepository;
 import com.sdt.feedback.repository.FeedbackRepository;
 import com.sdt.feedback.repository.projection.LatestAnalysisCountProjection;
+import com.sdt.feedback.repository.projection.CategoryCountProjection;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,35 +61,35 @@ public class DashboardService {
         feedbackRepository.countGroupedByStatus()
                 .forEach(row -> statusCounts.put(row.getStatus(), row.getCount()));
 
-        EnumMap<SentimentType, Long> sentimentCounts = zeroCounts(
-                SentimentType.class
-        );
-        EnumMap<PriorityLevel, Long> priorityCounts = zeroCounts(
-                PriorityLevel.class
-        );
-        for (LatestAnalysisCountProjection row
-                : analysisResultRepository.countLatestGroupedBySentimentAndPriority()) {
-            if (row.getSentiment() != null) {
-                sentimentCounts.merge(
-                        SentimentType.valueOf(row.getSentiment()),
-                        row.getCount(),
-                        Long::sum
-                );
-            }
-            if (row.getPriority() != null) {
-                priorityCounts.merge(
-                        PriorityLevel.valueOf(row.getPriority()),
-                        row.getCount(),
-                        Long::sum
-                );
-            }
-        }
+        LatestAnalysisCounts latestCounts = loadLatestAnalysisCounts();
 
         return new DashboardStatsResponse(
                 totalFeedback,
                 toStatusResponse(statusCounts),
-                toSentimentResponse(sentimentCounts),
-                toPriorityResponse(priorityCounts)
+                toSentimentResponse(latestCounts.sentiment()),
+                toPriorityResponse(latestCounts.priority())
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardDistributionResponse getDistribution() {
+        LatestAnalysisCounts latestCounts = loadLatestAnalysisCounts();
+
+        List<DistributionItemResponse> categories = feedbackRepository
+                .countGroupedByCategory()
+                .stream()
+                .map(this::toCategoryItem)
+                .toList();
+
+        EnumMap<SourceType, Long> sourceCounts = zeroCounts(SourceType.class);
+        feedbackRepository.countGroupedBySource()
+                .forEach(row -> sourceCounts.put(row.getSource(), row.getCount()));
+
+        return new DashboardDistributionResponse(
+                toEnumItems(SentimentType.class, latestCounts.sentiment()),
+                toEnumItems(PriorityLevel.class, latestCounts.priority()),
+                categories,
+                toEnumItems(SourceType.class, sourceCounts)
         );
     }
 
@@ -202,6 +206,57 @@ public class DashboardService {
         return counts;
     }
 
+    private LatestAnalysisCounts loadLatestAnalysisCounts() {
+        EnumMap<SentimentType, Long> sentimentCounts = zeroCounts(
+                SentimentType.class
+        );
+        EnumMap<PriorityLevel, Long> priorityCounts = zeroCounts(
+                PriorityLevel.class
+        );
+        for (LatestAnalysisCountProjection row
+                : analysisResultRepository.countLatestGroupedBySentimentAndPriority()) {
+            if (row.getSentiment() != null) {
+                sentimentCounts.merge(
+                        SentimentType.valueOf(row.getSentiment()),
+                        row.getCount(),
+                        Long::sum
+                );
+            }
+            if (row.getPriority() != null) {
+                priorityCounts.merge(
+                        PriorityLevel.valueOf(row.getPriority()),
+                        row.getCount(),
+                        Long::sum
+                );
+            }
+        }
+        return new LatestAnalysisCounts(sentimentCounts, priorityCounts);
+    }
+
+    private <E extends Enum<E>> List<DistributionItemResponse> toEnumItems(
+            Class<E> enumType,
+            EnumMap<E, Long> counts
+    ) {
+        return List.of(enumType.getEnumConstants())
+                .stream()
+                .map(value -> new DistributionItemResponse(
+                        value.name(),
+                        value.name(),
+                        counts.get(value)
+                ))
+                .toList();
+    }
+
+    private DistributionItemResponse toCategoryItem(
+            CategoryCountProjection row
+    ) {
+        return new DistributionItemResponse(
+                row.getCategory(),
+                row.getCategory(),
+                row.getCount()
+        );
+    }
+
     private FeedbackStatusStatsResponse toStatusResponse(
             EnumMap<FeedbackStatus, Long> counts
     ) {
@@ -234,5 +289,11 @@ public class DashboardService {
                 counts.get(PriorityLevel.HIGH),
                 counts.get(PriorityLevel.URGENT)
         );
+    }
+
+    private record LatestAnalysisCounts(
+            EnumMap<SentimentType, Long> sentiment,
+            EnumMap<PriorityLevel, Long> priority
+    ) {
     }
 }

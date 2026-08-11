@@ -1,6 +1,7 @@
 package com.sdt.feedback.controller;
 
 import com.sdt.feedback.dto.response.DashboardStatsResponse;
+import com.sdt.feedback.dto.response.DashboardDistributionResponse;
 import com.sdt.feedback.dto.response.DashboardTrendResponse;
 import com.sdt.feedback.enums.TrendInterval;
 import com.sdt.feedback.service.DashboardService;
@@ -26,6 +27,11 @@ public class DashboardController {
     @GetMapping("/stats")
     public ResponseEntity<DashboardStatsResponse> getStats() {
         return ResponseEntity.ok(dashboardService.getStats());
+    }
+
+    @GetMapping("/distribution")
+    public ResponseEntity<DashboardDistributionResponse> getDistribution() {
+        return ResponseEntity.ok(dashboardService.getDistribution());
     }
 
     @GetMapping("/trend")
