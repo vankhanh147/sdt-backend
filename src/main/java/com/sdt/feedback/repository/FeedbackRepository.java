@@ -21,7 +21,8 @@ import java.util.UUID;
 
 public interface FeedbackRepository extends
         JpaRepository<Feedback, UUID>,
-        JpaSpecificationExecutor<Feedback> {
+        JpaSpecificationExecutor<Feedback>,
+        FeedbackExportRepository {
 
     @Override
     @EntityGraph(attributePaths = "rawFeedback")

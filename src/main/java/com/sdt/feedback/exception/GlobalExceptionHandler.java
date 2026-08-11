@@ -18,6 +18,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ExportLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleExportLimitExceeded(
+            ExportLimitExceededException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(InvalidCategoryUpdateException.class)
     public ResponseEntity<ErrorResponse> handleInvalidCategoryUpdate(
             InvalidCategoryUpdateException exception,

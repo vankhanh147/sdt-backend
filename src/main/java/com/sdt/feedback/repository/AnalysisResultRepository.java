@@ -48,4 +48,22 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
             group by ranked.sentiment, ranked.priority
             """, nativeQuery = true)
     List<LatestAnalysisCountProjection> countLatestGroupedBySentimentAndPriority();
+
+    @Query(value = """
+            select ranked.*
+            from (
+                select
+                    analysis.*,
+                    row_number() over (
+                        partition by analysis.feedback_id
+                        order by analysis.created_at desc, analysis.id desc
+                    ) as export_row_number
+                from public.analysis_result analysis
+                where analysis.feedback_id in (:feedbackIds)
+            ) ranked
+            where ranked.export_row_number = 1
+            """, nativeQuery = true)
+    List<AnalysisResult> findLatestForExport(
+            @Param("feedbackIds") Collection<UUID> feedbackIds
+    );
 }
