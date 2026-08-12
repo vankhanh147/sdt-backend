@@ -40,3 +40,7 @@ build/
 .settings/
 .classpath
 .project
+
+### Local environment secrets ###
+.env
+.env.local
