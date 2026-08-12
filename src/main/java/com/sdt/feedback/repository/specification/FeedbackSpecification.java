@@ -11,7 +11,6 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -76,24 +75,43 @@ public final class FeedbackSpecification {
             }
 
             if (filter.getSentiment() != null || filter.getPriority() != null) {
-                Subquery<OffsetDateTime> latestCreatedAt = query.subquery(OffsetDateTime.class);
-                Root<AnalysisResult> latestAnalysis = latestCreatedAt.from(AnalysisResult.class);
-                latestCreatedAt.select(criteriaBuilder.greatest(
-                        latestAnalysis.<OffsetDateTime>get("createdAt")
-                ));
-                latestCreatedAt.where(criteriaBuilder.equal(
-                        latestAnalysis.get("feedback"),
-                        root
-                ));
-
                 Subquery<Integer> matchingLatestAnalysis = query.subquery(Integer.class);
                 Root<AnalysisResult> analysis = matchingLatestAnalysis.from(AnalysisResult.class);
                 List<Predicate> analysisPredicates = new ArrayList<>();
                 analysisPredicates.add(criteriaBuilder.equal(analysis.get("feedback"), root));
-                analysisPredicates.add(criteriaBuilder.equal(
-                        analysis.get("createdAt"),
-                        latestCreatedAt
-                ));
+
+                Subquery<Integer> newerAnalysisExists = matchingLatestAnalysis
+                        .subquery(Integer.class);
+                Root<AnalysisResult> candidate = newerAnalysisExists
+                        .from(AnalysisResult.class);
+                Predicate newerCreatedAt = criteriaBuilder.greaterThan(
+                        candidate.get("createdAt"),
+                        analysis.get("createdAt")
+                );
+                Predicate sameCreatedAtWithLargerId = criteriaBuilder.and(
+                        criteriaBuilder.equal(
+                                candidate.get("createdAt"),
+                                analysis.get("createdAt")
+                        ),
+                        criteriaBuilder.greaterThan(
+                                candidate.get("id"),
+                                analysis.get("id")
+                        )
+                );
+                newerAnalysisExists.select(criteriaBuilder.literal(1));
+                newerAnalysisExists.where(
+                        criteriaBuilder.equal(
+                                candidate.get("feedback"),
+                                analysis.get("feedback")
+                        ),
+                        criteriaBuilder.or(
+                                newerCreatedAt,
+                                sameCreatedAtWithLargerId
+                        )
+                );
+                analysisPredicates.add(
+                        criteriaBuilder.not(criteriaBuilder.exists(newerAnalysisExists))
+                );
 
                 if (filter.getSentiment() != null) {
                     analysisPredicates.add(criteriaBuilder.equal(

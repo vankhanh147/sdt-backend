@@ -138,7 +138,7 @@ public class FeedbackExportService {
         if (feedbackIds.isEmpty()) {
             return Map.of();
         }
-        return analysisResultRepository.findLatestForExport(feedbackIds)
+        return analysisResultRepository.findLatestByFeedbackIds(feedbackIds)
                 .stream()
                 .collect(Collectors.toMap(
                         analysis -> analysis.getFeedback().getId(),

@@ -12,19 +12,24 @@ import java.util.UUID;
 
 public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, UUID> {
 
-    List<AnalysisResult> findByFeedback_IdOrderByCreatedAtDesc(UUID feedbackId);
+    List<AnalysisResult> findByFeedback_IdOrderByCreatedAtDescIdDesc(
+            UUID feedbackId
+    );
 
-    @Query("""
-            select analysis
-            from AnalysisResult analysis
-            where analysis.feedback.id in :feedbackIds
-              and analysis.createdAt = (
-                  select max(candidate.createdAt)
-                  from AnalysisResult candidate
-                  where candidate.feedback.id = analysis.feedback.id
-              )
-            order by analysis.createdAt desc
-            """)
+    @Query(value = """
+            select ranked.*
+            from (
+                select
+                    analysis.*,
+                    row_number() over (
+                        partition by analysis.feedback_id
+                        order by analysis.created_at desc, analysis.id desc
+                    ) as latest_row_number
+                from public.analysis_result analysis
+                where analysis.feedback_id in (:feedbackIds)
+            ) ranked
+            where ranked.latest_row_number = 1
+            """, nativeQuery = true)
     List<AnalysisResult> findLatestByFeedbackIds(
             @Param("feedbackIds") Collection<UUID> feedbackIds
     );
@@ -49,21 +54,4 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
             """, nativeQuery = true)
     List<LatestAnalysisCountProjection> countLatestGroupedBySentimentAndPriority();
 
-    @Query(value = """
-            select ranked.*
-            from (
-                select
-                    analysis.*,
-                    row_number() over (
-                        partition by analysis.feedback_id
-                        order by analysis.created_at desc, analysis.id desc
-                    ) as export_row_number
-                from public.analysis_result analysis
-                where analysis.feedback_id in (:feedbackIds)
-            ) ranked
-            where ranked.export_row_number = 1
-            """, nativeQuery = true)
-    List<AnalysisResult> findLatestForExport(
-            @Param("feedbackIds") Collection<UUID> feedbackIds
-    );
 }

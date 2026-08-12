@@ -109,7 +109,7 @@ public class FeedbackQueryService {
                 ));
 
         List<AnalysisResult> analysisResults = analysisResultRepository
-                .findByFeedback_IdOrderByCreatedAtDesc(id);
+                .findByFeedback_IdOrderByCreatedAtDescIdDesc(id);
         List<AnalysisResultResponse> analysisHistory = feedbackMapper
                 .toAnalysisResultResponses(analysisResults);
         AnalysisResultResponse latestAnalysis = analysisHistory.isEmpty()
