@@ -12,7 +12,10 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -32,6 +35,10 @@ public interface FeedbackRepository extends
 
     @EntityGraph(attributePaths = "rawFeedback")
     Optional<Feedback> findDetailById(UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select feedback from Feedback feedback where feedback.id = :id")
+    Optional<Feedback> findByIdForAttachmentUpdate(@Param("id") UUID id);
 
     @Query("""
             select feedback.status as status, count(feedback) as count

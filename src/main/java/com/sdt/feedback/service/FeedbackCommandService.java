@@ -1,5 +1,6 @@
 package com.sdt.feedback.service;
 
+import com.sdt.feedback.client.SupabaseStorageClient;
 import com.sdt.feedback.dto.request.FeedbackUpdateRequest;
 import com.sdt.feedback.dto.response.AnalysisResultResponse;
 import com.sdt.feedback.dto.response.FeedbackDetailResponse;
@@ -12,6 +13,7 @@ import com.sdt.feedback.exception.ResourceNotFoundException;
 import com.sdt.feedback.mapper.FeedbackMapper;
 import com.sdt.feedback.repository.AnalysisResultRepository;
 import com.sdt.feedback.repository.FeedbackRepository;
+import com.sdt.feedback.repository.FeedbackAttachmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,15 +28,21 @@ public class FeedbackCommandService {
     private final FeedbackRepository feedbackRepository;
     private final AnalysisResultRepository analysisResultRepository;
     private final FeedbackMapper feedbackMapper;
+    private final FeedbackAttachmentRepository feedbackAttachmentRepository;
+    private final SupabaseStorageClient storageClient;
 
     public FeedbackCommandService(
             FeedbackRepository feedbackRepository,
             AnalysisResultRepository analysisResultRepository,
-            FeedbackMapper feedbackMapper
+            FeedbackMapper feedbackMapper,
+            FeedbackAttachmentRepository feedbackAttachmentRepository,
+            SupabaseStorageClient storageClient
     ) {
         this.feedbackRepository = feedbackRepository;
         this.analysisResultRepository = analysisResultRepository;
         this.feedbackMapper = feedbackMapper;
+        this.feedbackAttachmentRepository = feedbackAttachmentRepository;
+        this.storageClient = storageClient;
     }
 
     @Transactional
@@ -77,6 +85,10 @@ public class FeedbackCommandService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Feedback not found with id=" + id
                 ));
+
+        List<String> storagePaths = feedbackAttachmentRepository
+                .findStoragePathsByFeedbackId(id);
+        storageClient.deleteAll(storagePaths);
 
         feedbackRepository.delete(feedback);
         feedbackRepository.flush();
