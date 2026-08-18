@@ -1,13 +1,16 @@
 package com.sdt.feedback.controller;
 
 import com.sdt.feedback.dto.request.FeedbackIngestRequest;
+import com.sdt.feedback.dto.request.FeedbackCreateRequest;
 import com.sdt.feedback.dto.request.FeedbackFilterRequest;
 import com.sdt.feedback.dto.request.FeedbackUpdateRequest;
+import com.sdt.feedback.dto.response.FeedbackCreateResponse;
 import com.sdt.feedback.dto.response.FeedbackIngestResponse;
 import com.sdt.feedback.dto.response.FeedbackDetailResponse;
 import com.sdt.feedback.dto.response.FeedbackListItemResponse;
 import com.sdt.feedback.dto.response.PageResponse;
 import com.sdt.feedback.service.FeedbackCommandService;
+import com.sdt.feedback.service.FeedbackCreateService;
 import com.sdt.feedback.service.FeedbackIngestService;
 import com.sdt.feedback.service.FeedbackQueryService;
 import jakarta.validation.Valid;
@@ -30,15 +33,18 @@ import java.util.UUID;
 public class FeedbackController {
 
     private final FeedbackIngestService feedbackIngestService;
+    private final FeedbackCreateService feedbackCreateService;
     private final FeedbackQueryService feedbackQueryService;
     private final FeedbackCommandService feedbackCommandService;
 
     public FeedbackController(
             FeedbackIngestService feedbackIngestService,
+            FeedbackCreateService feedbackCreateService,
             FeedbackQueryService feedbackQueryService,
             FeedbackCommandService feedbackCommandService
     ) {
         this.feedbackIngestService = feedbackIngestService;
+        this.feedbackCreateService = feedbackCreateService;
         this.feedbackQueryService = feedbackQueryService;
         this.feedbackCommandService = feedbackCommandService;
     }
@@ -48,6 +54,14 @@ public class FeedbackController {
             @Valid @ModelAttribute FeedbackFilterRequest filter
     ) {
         return ResponseEntity.ok(feedbackQueryService.getFeedbacks(filter));
+    }
+
+    @PostMapping
+    public ResponseEntity<FeedbackCreateResponse> createFeedback(
+            @Valid @RequestBody FeedbackCreateRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(feedbackCreateService.create(request));
     }
 
     @GetMapping("/{id}")
