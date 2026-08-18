@@ -26,15 +26,18 @@ public class FeedbackCreateService {
     private final RawFeedbackRepository rawFeedbackRepository;
     private final FeedbackRepository feedbackRepository;
     private final FeedbackCreateMapper feedbackCreateMapper;
+    private final NotificationService notificationService;
 
     public FeedbackCreateService(
             RawFeedbackRepository rawFeedbackRepository,
             FeedbackRepository feedbackRepository,
-            FeedbackCreateMapper feedbackCreateMapper
+            FeedbackCreateMapper feedbackCreateMapper,
+            NotificationService notificationService
     ) {
         this.rawFeedbackRepository = rawFeedbackRepository;
         this.feedbackRepository = feedbackRepository;
         this.feedbackCreateMapper = feedbackCreateMapper;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -58,6 +61,7 @@ public class FeedbackCreateService {
         feedback.setRawFeedback(savedRawFeedback);
         feedback.setStatus(FeedbackStatus.PENDING_ANALYSIS);
         Feedback savedFeedback = feedbackRepository.saveAndFlush(feedback);
+        notificationService.createNewFeedbackNotification(savedFeedback);
 
         return feedbackCreateMapper.toResponse(
                 savedFeedback,

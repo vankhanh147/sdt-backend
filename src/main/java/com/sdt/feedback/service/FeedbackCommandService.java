@@ -30,19 +30,22 @@ public class FeedbackCommandService {
     private final FeedbackMapper feedbackMapper;
     private final FeedbackAttachmentRepository feedbackAttachmentRepository;
     private final SupabaseStorageClient storageClient;
+    private final NotificationService notificationService;
 
     public FeedbackCommandService(
             FeedbackRepository feedbackRepository,
             AnalysisResultRepository analysisResultRepository,
             FeedbackMapper feedbackMapper,
             FeedbackAttachmentRepository feedbackAttachmentRepository,
-            SupabaseStorageClient storageClient
+            SupabaseStorageClient storageClient,
+            NotificationService notificationService
     ) {
         this.feedbackRepository = feedbackRepository;
         this.analysisResultRepository = analysisResultRepository;
         this.feedbackMapper = feedbackMapper;
         this.feedbackAttachmentRepository = feedbackAttachmentRepository;
         this.storageClient = storageClient;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -60,6 +63,13 @@ public class FeedbackCommandService {
         feedbackMapper.updateEntity(normalizedRequest, feedback);
         updateResolvedAt(feedback, previousStatus, normalizedRequest.status());
         Feedback savedFeedback = feedbackRepository.saveAndFlush(feedback);
+        if (previousStatus != savedFeedback.getStatus()) {
+            notificationService.createStatusChangedNotification(
+                    savedFeedback,
+                    previousStatus,
+                    savedFeedback.getStatus()
+            );
+        }
 
         List<AnalysisResult> analysisResults = analysisResultRepository
                 .findByFeedback_IdOrderByCreatedAtDesc(id);
