@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -17,6 +18,84 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AttachmentFileTooLargeException.class)
+    public ResponseEntity<ErrorResponse> handleAttachmentFileTooLarge(
+            AttachmentFileTooLargeException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "Attachment file must not exceed 5 MB",
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(InvalidAttachmentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAttachment(
+            InvalidAttachmentException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(AttachmentLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleAttachmentLimitExceeded(
+            AttachmentLimitExceededException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(AttachmentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAttachmentNotFound(
+            AttachmentNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    @ExceptionHandler(StorageOperationException.class)
+    public ResponseEntity<ErrorResponse> handleStorageOperation(
+            StorageOperationException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_GATEWAY,
+                "Attachment storage is currently unavailable",
+                request.getRequestURI(),
+                null
+        );
+    }
 
     @ExceptionHandler(ExportLimitExceededException.class)
     public ResponseEntity<ErrorResponse> handleExportLimitExceeded(
