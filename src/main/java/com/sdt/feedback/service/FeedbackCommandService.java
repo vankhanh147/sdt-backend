@@ -8,6 +8,7 @@ import com.sdt.feedback.dto.response.RawFeedbackDetailResponse;
 import com.sdt.feedback.entity.AnalysisResult;
 import com.sdt.feedback.entity.Feedback;
 import com.sdt.feedback.enums.FeedbackStatus;
+import com.sdt.feedback.event.FeedbackResolvedEvent;
 import com.sdt.feedback.exception.InvalidUpdateException;
 import com.sdt.feedback.exception.ResourceNotFoundException;
 import com.sdt.feedback.mapper.FeedbackMapper;
@@ -15,6 +16,7 @@ import com.sdt.feedback.repository.AnalysisResultRepository;
 import com.sdt.feedback.repository.FeedbackRepository;
 import com.sdt.feedback.repository.FeedbackAttachmentRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -31,6 +33,7 @@ public class FeedbackCommandService {
     private final FeedbackAttachmentRepository feedbackAttachmentRepository;
     private final SupabaseStorageClient storageClient;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public FeedbackCommandService(
             FeedbackRepository feedbackRepository,
@@ -38,7 +41,8 @@ public class FeedbackCommandService {
             FeedbackMapper feedbackMapper,
             FeedbackAttachmentRepository feedbackAttachmentRepository,
             SupabaseStorageClient storageClient,
-            NotificationService notificationService
+            NotificationService notificationService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.feedbackRepository = feedbackRepository;
         this.analysisResultRepository = analysisResultRepository;
@@ -46,6 +50,7 @@ public class FeedbackCommandService {
         this.feedbackAttachmentRepository = feedbackAttachmentRepository;
         this.storageClient = storageClient;
         this.notificationService = notificationService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -69,6 +74,15 @@ public class FeedbackCommandService {
                     previousStatus,
                     savedFeedback.getStatus()
             );
+        }
+        if (previousStatus != FeedbackStatus.RESOLVED
+                && savedFeedback.getStatus() == FeedbackStatus.RESOLVED) {
+            eventPublisher.publishEvent(new FeedbackResolvedEvent(
+                    savedFeedback.getId(),
+                    savedFeedback.getAuthorName(),
+                    savedFeedback.getAuthorContact(),
+                    savedFeedback.getTitle()
+            ));
         }
 
         List<AnalysisResult> analysisResults = analysisResultRepository

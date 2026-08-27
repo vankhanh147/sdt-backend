@@ -7,10 +7,12 @@ import com.sdt.feedback.entity.RawFeedback;
 import com.sdt.feedback.enums.FeedbackStatus;
 import com.sdt.feedback.enums.RawProcessingStatus;
 import com.sdt.feedback.enums.SourceType;
+import com.sdt.feedback.event.FeedbackCreatedEvent;
 import com.sdt.feedback.mapper.FeedbackCreateMapper;
 import com.sdt.feedback.repository.FeedbackRepository;
 import com.sdt.feedback.repository.RawFeedbackRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -27,17 +29,20 @@ public class FeedbackCreateService {
     private final FeedbackRepository feedbackRepository;
     private final FeedbackCreateMapper feedbackCreateMapper;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public FeedbackCreateService(
             RawFeedbackRepository rawFeedbackRepository,
             FeedbackRepository feedbackRepository,
             FeedbackCreateMapper feedbackCreateMapper,
-            NotificationService notificationService
+            NotificationService notificationService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.rawFeedbackRepository = rawFeedbackRepository;
         this.feedbackRepository = feedbackRepository;
         this.feedbackCreateMapper = feedbackCreateMapper;
         this.notificationService = notificationService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -62,6 +67,12 @@ public class FeedbackCreateService {
         feedback.setStatus(FeedbackStatus.PENDING_ANALYSIS);
         Feedback savedFeedback = feedbackRepository.saveAndFlush(feedback);
         notificationService.createNewFeedbackNotification(savedFeedback);
+        eventPublisher.publishEvent(new FeedbackCreatedEvent(
+                savedFeedback.getId(),
+                savedFeedback.getAuthorName(),
+                savedFeedback.getAuthorContact(),
+                savedFeedback.getTitle()
+        ));
 
         return feedbackCreateMapper.toResponse(
                 savedFeedback,
