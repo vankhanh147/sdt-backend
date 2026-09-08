@@ -1,241 +1,337 @@
-# Frontend Integration Guide
+# Frontend API Contract
 
-Tài liệu này mô tả contract hiện có trong backend để frontend tích hợp. Các enum là chuỗi và phân biệt chữ hoa/thường.
+This document describes the API implemented in `sdt-backend` for frontend integration.
 
-## 1. Run backend
+## Base URL and conventions
 
-- Java: 21.
-- Build tool: Maven Wrapper (`mvnw.cmd`).
-- Port không được cấu hình riêng, nên Spring Boot dùng mặc định `8080`.
-- Base URL local: `http://localhost:8080`.
-- Datasource password hiện đang được hard-code trong `application.properties`, chưa dùng `${DB_PASSWORD}`. Secret này không được đưa vào tài liệu frontend, commit hoặc công khai; nên chuyển sang biến môi trường trong một thay đổi cấu hình riêng.
+- Local base URL: `http://localhost:8080`
+- All JSON uses `camelCase`.
+- UUID values are strings.
+- `OffsetDateTime` values use ISO 8601 with an offset, for example `2026-08-11T10:30:00+07:00`.
+- `LocalDate` values use `yyyy-MM-dd`.
+- Enum values are case-sensitive strings.
+- There is currently no authentication endpoint or API authentication.
+- The backend has no CORS configuration. When the frontend uses a different local origin, configure a development proxy for `/api` or add CORS in the backend.
 
-Chạy trên Windows:
+### Enums
 
-```bat
-mvnw.cmd spring-boot:run
-```
-
-Backend cần kết nối được PostgreSQL khi khởi động vì Hibernate đang dùng `ddl-auto=validate`.
-
-## 2. Common conventions
-
-- Request/response JSON dùng `camelCase`.
-- UUID được truyền dưới dạng chuỗi, ví dụ `6f6790a0-80bc-4f62-b556-4657ea4be609`.
-- `OffsetDateTime` nên gửi theo ISO 8601 có offset, ví dụ `2026-08-11T10:30:00+07:00`.
-- `LocalDate` dùng định dạng `yyyy-MM-dd`.
-- Không có authentication trong các controller hiện tại.
-
-Enum hợp lệ:
-
-| Enum | Giá trị |
-|---|---|
+| Enum | Values |
+| --- | --- |
 | `SourceType` | `ZALO`, `WEBSITE`, `EMAIL`, `MANUAL`, `OTHER` |
 | `FeedbackStatus` | `PENDING_ANALYSIS`, `ANALYZED`, `IN_PROGRESS`, `RESOLVED`, `REJECTED`, `ANALYSIS_FAILED` |
 | `SentimentType` | `POSITIVE`, `NEUTRAL`, `NEGATIVE` |
 | `PriorityLevel` | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| `RawProcessingStatus` | `NEW`, `PROCESSING`, `PROCESSED`, `FAILED` |
+| `AnalysisStatus` | `PENDING`, `SUCCESS`, `FAILED` |
 | `TrendInterval` | `DAY`, `MONTH` |
 
-## 3. Feedback APIs
+## Shared response shapes
 
-### List and filter feedback
+```ts
+type PageResponse<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+};
 
-`GET /api/feedback`
+type ErrorResponse = {
+  timestamp: string;
+  status: number;
+  error: string;
+  message: string;
+  path: string;
+  validationErrors: Record<string, string> | null;
+};
 
-Query parameters:
+type FeedbackListItem = {
+  id: string;
+  title: string | null;
+  content: string;
+  authorName: string | null;
+  location: string | null;
+  category: string | null;
+  status: FeedbackStatus;
+  source: SourceType;
+  receivedAt: string;
+  sentiment: SentimentType | null;
+  sentimentScore: number | null;
+  priority: PriorityLevel | null;
+  priorityScore: number | null;
+  createdAt: string;
+};
 
-| Parameter | Type | Ghi chú |
-|---|---|---|
-| `page` | integer | Mặc định `0`, nhỏ nhất `0` |
-| `size` | integer | Mặc định `20`, từ `1` đến `100` |
-| `sortBy` | string | Cho phép `createdAt`, `updatedAt`, `title`, `status`, `category`; giá trị khác dùng `createdAt` |
-| `sortDirection` | string | `asc` hoặc `desc`; mặc định `desc` |
-| `source` | `SourceType` | Lọc theo nguồn |
-| `status` | `FeedbackStatus` | Lọc theo trạng thái |
-| `category` | string | So khớp category không phân biệt hoa/thường |
-| `sentiment` | `SentimentType` | Dựa trên analysis mới nhất |
-| `priority` | `PriorityLevel` | Dựa trên analysis mới nhất |
-| `keyword` | string | Tìm trong title hoặc content, không phân biệt hoa/thường |
-| `fromDate` | `OffsetDateTime` | `createdAt >= fromDate` |
-| `toDate` | `OffsetDateTime` | `createdAt <= toDate` |
+type RawFeedback = {
+  id: string;
+  source: SourceType;
+  sourceRef: string;
+  rawTitle: string | null;
+  rawContent: string;
+  rawAuthorName: string | null;
+  rawAuthorContact: string | null;
+  rawLocation: string | null;
+  categoryHint: string | null;
+  rawMetadata: Record<string, unknown> | null;
+  receivedAt: string;
+  processingStatus: RawProcessingStatus;
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
-Response là page object:
+type AnalysisResult = {
+  id: string;
+  sentiment: SentimentType | null;
+  sentimentScore: number | null;
+  category: string | null;
+  categoryScore: number | null;
+  matchedKeywords: string[] | null;
+  priority: PriorityLevel | null;
+  priorityScore: number | null;
+  priorityReason: string | null;
+  modelName: string | null;
+  modelVersion: string | null;
+  analysisStatus: AnalysisStatus;
+  errorMessage: string | null;
+  analyzedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
-```json
-{
-  "content": [
-    {
-      "id": "uuid",
-      "title": "string",
-      "content": "string",
-      "authorName": "string",
-      "location": "string",
-      "category": "string",
-      "status": "ANALYZED",
-      "source": "WEBSITE",
-      "receivedAt": "2026-08-11T10:30:00+07:00",
-      "sentiment": "POSITIVE",
-      "sentimentScore": 0.95,
-      "priority": "HIGH",
-      "priorityScore": 80,
-      "createdAt": "2026-08-11T10:31:00+07:00"
-    }
-  ],
-  "page": 0,
-  "size": 20,
-  "totalElements": 1,
-  "totalPages": 1,
-  "first": true,
-  "last": true
-}
+type FeedbackDetail = {
+  id: string;
+  title: string;
+  content: string;
+  authorName: string | null;
+  authorContact: string | null;
+  location: string | null;
+  category: string | null;
+  status: FeedbackStatus;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  rawFeedback: RawFeedback;
+  latestAnalysis: AnalysisResult | null;
+  analysisHistory: AnalysisResult[];
+};
+
+type Category = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 ```
 
-Các field analysis có thể là `null` nếu feedback chưa có AnalysisResult.
+`number` above represents JSON numbers, including Java `BigDecimal` and `long` values.
 
-### Feedback detail
+## Feedback APIs
 
-`GET /api/feedback/{id}`
+### List feedback
 
-Response chính gồm `id`, `title`, `content`, `authorName`, `authorContact`, `location`, `category`, `status`, `createdAt`, `updatedAt`, `resolvedAt`, cùng:
+`GET /api/feedback` → `200 PageResponse<FeedbackListItem>`
 
-- `rawFeedback`: dữ liệu nguồn, metadata và processing status.
-- `latestAnalysis`: AnalysisResult mới nhất hoặc `null`.
-- `analysisHistory`: danh sách AnalysisResult, mới nhất trước.
+| Query parameter | Type | Default / constraint |
+| --- | --- | --- |
+| `page` | integer | `0`; must be at least `0` |
+| `size` | integer | `20`; from `1` to `100` |
+| `sortBy` | string | `createdAt`; allowed: `createdAt`, `updatedAt`, `title`, `status`, `category`; another value falls back to `createdAt` |
+| `sortDirection` | `asc` \| `desc` | `desc`; another nonblank value returns `400` |
+| `source` | `SourceType` | optional |
+| `status` | `FeedbackStatus` | optional |
+| `category` | string | case-insensitive exact match |
+| `sentiment` | `SentimentType` | filters the latest analysis |
+| `priority` | `PriorityLevel` | filters the latest analysis |
+| `keyword` | string | case-insensitive title/content search |
+| `fromDate` | `OffsetDateTime` | inclusive `createdAt` lower bound |
+| `toDate` | `OffsetDateTime` | inclusive `createdAt` upper bound |
 
-AnalysisResult gồm sentiment/category/priority và score tương ứng, `matchedKeywords`, thông tin model, trạng thái analysis và các timestamp.
+`fromDate` after `toDate` returns `400`.
+
+### Get feedback detail
+
+`GET /api/feedback/{id}` → `200 FeedbackDetail`
+
+Returns `404` when the feedback does not exist. `latestAnalysis` is `null` when no analysis exists; `analysisHistory` is newest first.
 
 ### Update feedback
 
-`PATCH /api/feedback/{id}`
+`PATCH /api/feedback/{id}` → `200 FeedbackDetail`
 
-Mọi field đều tùy chọn; chỉ gửi field cần đổi:
-
-```json
-{
-  "title": "Tiêu đề mới",
-  "content": "Nội dung mới",
-  "authorName": "Nguyễn Văn A",
-  "authorContact": "contact@example.com",
-  "location": "Hà Nội",
-  "category": "Giao thông",
-  "status": "IN_PROGRESS"
-}
+```ts
+type FeedbackUpdateRequest = {
+  title?: string;           // max 500, nonblank when supplied
+  content?: string;         // nonblank when supplied
+  authorName?: string;      // max 255, nonblank when supplied
+  authorContact?: string;   // max 255, nonblank when supplied
+  location?: string;        // max 500, nonblank when supplied
+  category?: string;        // max 100, nonblank when supplied
+  status?: FeedbackStatus;
+};
 ```
 
-Giới hạn: `title` 500, `authorName`/`authorContact` 255, `location` 500, `category` 100 ký tự. Response là `FeedbackDetailResponse`.
-
-`Feedback.category` hiện là `String` và chưa liên kết khóa ngoại với bảng `Category`. Khi PATCH feedback, frontend gửi tên category, ví dụ `{ "category": "Giao thông" }`, không gửi `categoryId`.
+Send at least one field. Strings are trimmed. Setting `status` to `RESOLVED` sets `resolvedAt`; changing from `RESOLVED` to another status clears it. `category` is a name string, not a category ID. Empty/blank updates return `400`; an unknown ID returns `404`.
 
 ### Delete feedback
 
-`DELETE /api/feedback/{id}` trả `204 No Content` khi thành công.
+`DELETE /api/feedback/{id}` → `204 No Content`
+
+Returns `404` when the feedback does not exist.
 
 ### Ingest raw feedback
 
-`POST /api/feedback/ingest` trả `201 Created`.
+`POST /api/feedback/ingest` → `201 FeedbackIngestResponse`
 
-```json
-{
-  "source": "WEBSITE",
-  "sourceRef": "external-id-001",
-  "rawTitle": "Tiêu đề",
-  "rawContent": "Nội dung phản ánh",
-  "rawAuthorName": "Nguyễn Văn A",
-  "rawAuthorContact": "contact@example.com",
-  "rawLocation": "Hà Nội",
-  "categoryHint": "Giao thông",
-  "rawMetadata": { "channel": "web" },
-  "receivedAt": "2026-08-11T10:30:00+07:00"
-}
+```ts
+type FeedbackIngestRequest = {
+  source: SourceType;
+  sourceRef: string;                // required, max 255
+  rawTitle?: string | null;         // max 500
+  rawContent: string;               // required
+  rawAuthorName?: string | null;    // max 255
+  rawAuthorContact?: string | null; // max 255
+  rawLocation?: string | null;      // max 500
+  categoryHint?: string | null;     // max 100
+  rawMetadata?: Record<string, unknown> | null;
+  receivedAt: string;
+};
+
+type FeedbackIngestResponse = {
+  id: string;
+  source: SourceType;
+  sourceRef: string;
+  processingStatus: RawProcessingStatus; // initially NEW
+  receivedAt: string;
+  createdAt: string;
+};
 ```
 
-`source`, `sourceRef`, `rawContent`, `receivedAt` là bắt buộc. Response gồm `id`, `source`, `sourceRef`, `processingStatus`, `receivedAt`, `createdAt`.
+`source`, `sourceRef`, `rawContent`, and `receivedAt` are required. The `source`/`sourceRef` pair must be unique; duplicates return `409`.
 
-## 4. Category APIs
+## Category APIs
 
-| Method | Path | Mục đích | Response |
-|---|---|---|---|
-| `POST` | `/api/categories` | Tạo category | `201 CategoryResponse` |
-| `GET` | `/api/categories?activeOnly=false` | Danh sách; đặt `true` để chỉ lấy active | `CategoryResponse[]` |
-| `GET` | `/api/categories/{id}` | Chi tiết category | `CategoryResponse` |
-| `PATCH` | `/api/categories/{id}` | Đổi name/description | `CategoryResponse` |
-| `DELETE` | `/api/categories/{id}` | Deactivate category | `204` |
-| `PATCH` | `/api/categories/{id}/status` | Bật/tắt category | `CategoryResponse` |
+| Method | Path | Request body | Success response |
+| --- | --- | --- | --- |
+| `POST` | `/api/categories` | `CategoryCreateRequest` | `201 Category` |
+| `GET` | `/api/categories?activeOnly=false` | — | `200 Category[]` |
+| `GET` | `/api/categories/{id}` | — | `200 Category` |
+| `PATCH` | `/api/categories/{id}` | `CategoryUpdateRequest` | `200 Category` |
+| `DELETE` | `/api/categories/{id}` | — | `204 No Content` |
+| `PATCH` | `/api/categories/{id}/status` | `CategoryStatusUpdateRequest` | `200 Category` |
 
-Tạo category:
+```ts
+type CategoryCreateRequest = {
+  code: string;                   // required, max 50, /^[A-Za-z0-9_]+$/
+  name: string;                   // required, max 100
+  description?: string | null;    // max 500
+};
 
-```json
-{ "code": "GIAO_THONG", "name": "Giao thông", "description": "Mô tả" }
+type CategoryUpdateRequest = {
+  name?: string;                  // max 100, nonblank when supplied
+  description?: string;           // max 500, nonblank when supplied
+};
+
+type CategoryStatusUpdateRequest = {
+  active: boolean;
+};
 ```
 
-`code` bắt buộc, tối đa 50 ký tự, chỉ gồm chữ Latin, số và `_`. `name` bắt buộc, tối đa 100; `description` tối đa 500.
+Codes are trimmed and stored uppercase. Names are trimmed. A new category is active by default. `DELETE` deactivates the category; it does not remove it. Category code/name conflicts return `409`; missing categories return `404`; empty or blank `PATCH` fields return `400`.
 
-Update thông tin: `{ "name": "Tên mới", "description": "Mô tả mới" }`.
+## Dashboard APIs
 
-Update trạng thái: `{ "active": true }`; `active` là bắt buộc.
+### Statistics
 
-`CategoryResponse` gồm `id`, `code`, `name`, `description`, `isActive`, `createdAt`, `updatedAt`.
+`GET /api/dashboard/stats` → `200`
 
-## 5. Dashboard APIs
-
-| Method | Path | Kết quả |
-|---|---|---|
-| `GET` | `/api/dashboard/stats` | Tổng feedback; count theo status, sentiment và priority |
-| `GET` | `/api/dashboard/distribution` | Các mảng `sentiment`, `priority`, `category`, `source` |
-| `GET` | `/api/dashboard/trend` | Chuỗi thời gian feedback |
-
-`stats` response:
-
-```json
-{
-  "totalFeedback": 30,
-  "status": { "pendingAnalysis": 3, "analyzed": 27, "inProgress": 0, "resolved": 0, "rejected": 0, "analysisFailed": 0 },
-  "sentiment": { "positive": 9, "neutral": 9, "negative": 9 },
-  "priority": { "low": 9, "medium": 10, "high": 5, "urgent": 3 }
-}
+```ts
+type DashboardStats = {
+  totalFeedback: number;
+  status: {
+    pendingAnalysis: number;
+    analyzed: number;
+    inProgress: number;
+    resolved: number;
+    rejected: number;
+    analysisFailed: number;
+  };
+  sentiment: { positive: number; neutral: number; negative: number };
+  priority: { low: number; medium: number; high: number; urgent: number };
+};
 ```
 
-Mỗi item distribution có dạng `{ "key": "POSITIVE", "label": "POSITIVE", "count": 9 }`.
+### Distribution
 
-Trend nhận `fromDate`, `toDate` dạng `yyyy-MM-dd` và `interval=DAY|MONTH`. Mặc định là 30 ngày đến hôm nay, interval `DAY`, theo múi giờ `Asia/Bangkok`. Response gồm `fromDate`, `toDate`, `interval`, `points`; mỗi point là `{ "period": "2026-08-11", "count": 3 }`.
+`GET /api/dashboard/distribution` → `200`
 
-Giới hạn trend: tối đa 366 điểm ngày hoặc 120 điểm tháng.
+```ts
+type DistributionItem = { key: string; label: string; count: number };
 
-## 6. Export CSV
+type DashboardDistribution = {
+  sentiment: DistributionItem[];
+  priority: DistributionItem[];
+  category: DistributionItem[];
+  source: DistributionItem[];
+};
+```
 
-`GET /api/export` nhận các filter `source`, `status`, `category`, `sentiment`, `priority`, `keyword`, `fromDate`, `toDate`. `page`, `size` và sort không điều khiển nội dung export.
+Enum distributions include zero-count values. Their `key` and `label` are the enum name.
 
-Response là file CSV UTF-8 có BOM, **không phải JSON**. Browser có thể tải bằng blob:
+### Trend
 
-```js
+`GET /api/dashboard/trend` → `200`
+
+| Query parameter | Type | Default |
+| --- | --- | --- |
+| `fromDate` | `LocalDate` | 29 days before `toDate` |
+| `toDate` | `LocalDate` | today in `Asia/Bangkok` |
+| `interval` | `DAY` \| `MONTH` | `DAY` |
+
+```ts
+type DashboardTrend = {
+  fromDate: string;
+  toDate: string;
+  interval: TrendInterval;
+  points: Array<{ period: string; count: number }>;
+};
+```
+
+Missing periods are returned with `count: 0`. The maximum range is 366 daily points or 120 monthly points. An invalid/reversed range returns `400`.
+
+## CSV export
+
+`GET /api/export` → `200 text/csv;charset=UTF-8`
+
+Accepts the same filters as `GET /api/feedback`: `source`, `status`, `category`, `sentiment`, `priority`, `keyword`, `fromDate`, and `toDate`. Pagination and sorting parameters do not affect the exported rows.
+
+- The response has `Content-Disposition: attachment; filename="feedback-export-YYYYMMDD-HHmmss.csv"`.
+- The CSV is UTF-8 with a BOM and has `X-Content-Type-Options: nosniff`.
+- The header order is: `id`, `title`, `content`, `authorName`, `authorContact`, `location`, `category`, `status`, `source`, `receivedAt`, `sentiment`, `sentimentScore`, `priority`, `priorityScore`, `createdAt`, `updatedAt`, `resolvedAt`.
+- An export over 50,000 rows returns `413 ErrorResponse`.
+- Treat a successful export as a `Blob`, not JSON.
+
+```ts
 const response = await fetch(`${baseUrl}/api/export?status=ANALYZED`);
-if (!response.ok) throw await response.json();
-const blob = await response.blob();
+if (!response.ok) throw (await response.json()) as ErrorResponse;
+const csv = await response.blob();
 ```
 
-Tên file lấy từ header `Content-Disposition`. Export tối đa 50.000 feedback; vượt giới hạn trả `413` theo error format bên dưới.
+## Error handling
 
-## 7. Error response
+Backend errors normally return `ErrorResponse`.
 
-Lỗi JSON có cấu trúc:
+| Status | Meaning |
+| --- | --- |
+| `400` | Invalid JSON, UUID/enum/date parameter, request validation, empty/blank update, or invalid filter/range |
+| `404` | Feedback or category not found |
+| `409` | Duplicate category/feedback or database constraint conflict |
+| `413` | Export exceeds 50,000 rows |
+| `500` | Unexpected server error |
 
-```json
-{
-  "timestamp": "2026-08-11T10:30:00+07:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Request validation failed",
-  "path": "/api/feedback",
-  "validationErrors": { "size": "must be less than or equal to 100" }
-}
-```
-
-`validationErrors` có thể là `null`. Status cần xử lý: `400` request/filter sai, `404` không tìm thấy, `409` trùng hoặc vi phạm constraint, `413` export quá giới hạn, `500` lỗi không mong đợi. JSON/enum sai định dạng trả `400` với message `Malformed JSON or invalid field value`.
-
-## 8. CORS and current limitations
-
-- Code hiện tại không có `@CrossOrigin` hoặc CORS configuration. Frontend chạy ở origin khác (ví dụ dev server port 3000/5173) sẽ bị browser chặn nếu không dùng dev proxy hoặc backend chưa bổ sung CORS.
-- Nên cấu hình dev proxy `/api` tới `http://localhost:8080` trong frontend khi phát triển local.
-- `POST /api/feedback/{id}/analyze` **chưa được implement**; frontend không được gọi endpoint này.
-- Chưa có endpoint phục vụ authentication.
-- Export trả stream/file; chỉ parse JSON khi response export không thành công.
+There is no implemented `POST /api/feedback/{id}/analyze` endpoint. Do not call it from the frontend.

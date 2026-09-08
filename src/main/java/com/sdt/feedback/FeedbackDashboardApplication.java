@@ -9,5 +9,4 @@ public class FeedbackDashboardApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(FeedbackDashboardApplication.class, args);
 	}
-
 }
